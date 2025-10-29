@@ -18,9 +18,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Sparkles, Trash2 } from "lucide-react";
+import { Sparkles, Trash2, Download } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import * as XLSX from "xlsx";
 
 interface Query {
   id: string;
@@ -109,6 +110,50 @@ export const QueryTable = () => {
     ? queries 
     : queries.filter(q => q.status === statusFilter);
 
+  const exportToCSV = () => {
+    const csvData = filteredQueries.map(q => ({
+      Title: q.title,
+      Description: q.description || "",
+      Type: q.query_types?.name || "",
+      Status: q.status,
+      Priority: q.priority,
+      "AI Summary": q.ai_summary || "",
+      Created: format(new Date(q.created_at), "yyyy-MM-dd"),
+    }));
+
+    const headers = Object.keys(csvData[0] || {});
+    const csvContent = [
+      headers.join(","),
+      ...csvData.map(row => headers.map(h => `"${row[h as keyof typeof row]}"`).join(","))
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `queries-${format(new Date(), "yyyy-MM-dd")}.csv`;
+    a.click();
+    toast.success("Exported to CSV");
+  };
+
+  const exportToExcel = () => {
+    const excelData = filteredQueries.map(q => ({
+      Title: q.title,
+      Description: q.description || "",
+      Type: q.query_types?.name || "",
+      Status: q.status,
+      Priority: q.priority,
+      "AI Summary": q.ai_summary || "",
+      Created: format(new Date(q.created_at), "yyyy-MM-dd"),
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(excelData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Queries");
+    XLSX.writeFile(wb, `queries-${format(new Date(), "yyyy-MM-dd")}.xlsx`);
+    toast.success("Exported to Excel");
+  };
+
   const getStatusColor = (status: string) => {
     const colors = {
       pending: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
@@ -148,6 +193,16 @@ export const QueryTable = () => {
             <SelectItem value="closed">Closed</SelectItem>
           </SelectContent>
         </Select>
+        <div className="flex gap-2 ml-auto">
+          <Button variant="outline" size="sm" onClick={exportToCSV}>
+            <Download className="w-4 h-4 mr-2" />
+            CSV
+          </Button>
+          <Button variant="outline" size="sm" onClick={exportToExcel}>
+            <Download className="w-4 h-4 mr-2" />
+            Excel
+          </Button>
+        </div>
       </div>
 
       <div className="border rounded-lg">
