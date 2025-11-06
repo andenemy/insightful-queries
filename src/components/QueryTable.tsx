@@ -33,6 +33,7 @@ interface Query {
   priority: string;
   query_type_id: string | null;
   created_at: string;
+  updated_at: string;
   query_types: { name: string; color: string } | null;
 }
 
@@ -261,13 +262,14 @@ export const QueryTable = () => {
               <TableHead>Status</TableHead>
               <TableHead>Priority</TableHead>
               <TableHead>Created</TableHead>
+              <TableHead>Edited</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredQueries.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                   No queries found. Add your first query to get started!
                 </TableCell>
               </TableRow>
@@ -315,6 +317,9 @@ export const QueryTable = () => {
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {format(new Date(query.created_at), "MMM d, yyyy")}
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {format(new Date(query.updated_at), "MMM d, yyyy")}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex gap-2 justify-end">
