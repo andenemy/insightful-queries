@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -39,6 +40,7 @@ interface Query {
 
 export const QueryTable = () => {
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [searchTerm, setSearchTerm] = useState<string>("");
   const [editingQuery, setEditingQuery] = useState<Query | null>(null);
   const queryClient = useQueryClient();
 
@@ -85,9 +87,17 @@ export const QueryTable = () => {
     },
   });
 
-  const filteredQueries = statusFilter === "all" 
-    ? queries 
-    : queries.filter(q => q.status === statusFilter);
+  const filteredQueries = queries
+    .filter(q => statusFilter === "all" || q.status === statusFilter)
+    .filter(q => {
+      if (!searchTerm) return true;
+      const searchLower = searchTerm.toLowerCase();
+      return (
+        q.title.toLowerCase().includes(searchLower) ||
+        q.description?.toLowerCase().includes(searchLower) ||
+        q.query_types?.name.toLowerCase().includes(searchLower)
+      );
+    });
 
   const exportToCSV = () => {
     const csvData = filteredQueries.map(q => ({
@@ -224,6 +234,12 @@ export const QueryTable = () => {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-4">
+        <Input
+          placeholder="Search queries..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="max-w-xs"
+        />
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Filter by status" />
