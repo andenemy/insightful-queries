@@ -18,10 +18,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Sparkles, Trash2, Download } from "lucide-react";
+import { Trash2, Download, Printer, Edit } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import * as XLSX from "xlsx";
+import { EditQueryDialog } from "./EditQueryDialog";
+import { ImportExcelDialog } from "./ImportExcelDialog";
 
 interface Query {
   id: string;
@@ -29,13 +31,14 @@ interface Query {
   description: string | null;
   status: string;
   priority: string;
-  ai_summary: string | null;
+  query_type_id: string | null;
   created_at: string;
   query_types: { name: string; color: string } | null;
 }
 
 export const QueryTable = () => {
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [editingQuery, setEditingQuery] = useState<Query | null>(null);
   const queryClient = useQueryClient();
 
   const { data: queries = [], isLoading } = useQuery({
@@ -51,31 +54,6 @@ export const QueryTable = () => {
     },
   });
 
-  const generateSummaryMutation = useMutation({
-    mutationFn: async (query: Query) => {
-      const { data, error } = await supabase.functions.invoke("generate-summary", {
-        body: { title: query.title, description: query.description },
-      });
-
-      if (error) throw error;
-      if (!data?.summary) throw new Error("No summary generated");
-
-      const { error: updateError } = await supabase
-        .from("queries")
-        .update({ ai_summary: data.summary })
-        .eq("id", query.id);
-
-      if (updateError) throw updateError;
-      return data.summary;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["queries"] });
-      toast.success("Summary generated successfully");
-    },
-    onError: (error: any) => {
-      toast.error(error.message || "Failed to generate summary");
-    },
-  });
 
   const deleteQueryMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -117,7 +95,6 @@ export const QueryTable = () => {
       Type: q.query_types?.name || "",
       Status: q.status,
       Priority: q.priority,
-      "AI Summary": q.ai_summary || "",
       Created: format(new Date(q.created_at), "yyyy-MM-dd"),
     }));
 
@@ -143,7 +120,6 @@ export const QueryTable = () => {
       Type: q.query_types?.name || "",
       Status: q.status,
       Priority: q.priority,
-      "AI Summary": q.ai_summary || "",
       Created: format(new Date(q.created_at), "yyyy-MM-dd"),
     }));
 
@@ -152,6 +128,72 @@ export const QueryTable = () => {
     XLSX.utils.book_append_sheet(wb, ws, "Queries");
     XLSX.writeFile(wb, `queries-${format(new Date(), "yyyy-MM-dd")}.xlsx`);
     toast.success("Exported to Excel");
+  };
+
+  const printSummary = () => {
+    // Group queries by date and type
+    const summary: { [date: string]: { [type: string]: number } } = {};
+    const allTypes = new Set<string>();
+
+    filteredQueries.forEach((q) => {
+      const date = format(new Date(q.created_at), "yyyy-MM-dd");
+      const type = q.query_types?.name || "Untyped";
+      allTypes.add(type);
+
+      if (!summary[date]) summary[date] = {};
+      summary[date][type] = (summary[date][type] || 0) + 1;
+    });
+
+    // Create printable HTML
+    const typeColumns = Array.from(allTypes).sort();
+    const dates = Object.keys(summary).sort();
+
+    let html = `
+      <html>
+        <head>
+          <title>Query Summary Report</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 20px; }
+            table { border-collapse: collapse; width: 100%; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #f2f2f2; }
+            h1 { color: #333; }
+          </style>
+        </head>
+        <body>
+          <h1>Query Summary Report</h1>
+          <p>Generated: ${format(new Date(), "PPP")}</p>
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                ${typeColumns.map(type => `<th>${type}</th>`).join("")}
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${dates.map(date => {
+                const rowTotal = Object.values(summary[date]).reduce((a, b) => a + b, 0);
+                return `
+                  <tr>
+                    <td>${date}</td>
+                    ${typeColumns.map(type => `<td>${summary[date][type] || 0}</td>`).join("")}
+                    <td><strong>${rowTotal}</strong></td>
+                  </tr>
+                `;
+              }).join("")}
+            </tbody>
+          </table>
+        </body>
+      </html>
+    `;
+
+    const printWindow = window.open("", "_blank");
+    if (printWindow) {
+      printWindow.document.write(html);
+      printWindow.document.close();
+      printWindow.print();
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -194,6 +236,11 @@ export const QueryTable = () => {
           </SelectContent>
         </Select>
         <div className="flex gap-2 ml-auto">
+          <Button variant="outline" size="sm" onClick={printSummary}>
+            <Printer className="w-4 h-4 mr-2" />
+            Print Summary
+          </Button>
+          <ImportExcelDialog />
           <Button variant="outline" size="sm" onClick={exportToCSV}>
             <Download className="w-4 h-4 mr-2" />
             CSV
@@ -214,14 +261,13 @@ export const QueryTable = () => {
               <TableHead>Status</TableHead>
               <TableHead>Priority</TableHead>
               <TableHead>Created</TableHead>
-              <TableHead>AI Summary</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredQueries.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                   No queries found. Add your first query to get started!
                 </TableCell>
               </TableRow>
@@ -270,31 +316,23 @@ export const QueryTable = () => {
                   <TableCell className="text-sm text-muted-foreground">
                     {format(new Date(query.created_at), "MMM d, yyyy")}
                   </TableCell>
-                  <TableCell className="max-w-xs">
-                    {query.ai_summary ? (
-                      <p className="text-sm text-muted-foreground line-clamp-2">
-                        {query.ai_summary}
-                      </p>
-                    ) : (
+                  <TableCell className="text-right">
+                    <div className="flex gap-2 justify-end">
                       <Button
                         size="sm"
-                        variant="outline"
-                        onClick={() => generateSummaryMutation.mutate(query)}
-                        disabled={generateSummaryMutation.isPending}
+                        variant="ghost"
+                        onClick={() => setEditingQuery(query)}
                       >
-                        <Sparkles className="w-4 h-4 mr-1" />
-                        Generate
+                        <Edit className="w-4 h-4" />
                       </Button>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => deleteQueryMutation.mutate(query.id)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => deleteQueryMutation.mutate(query.id)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))
@@ -302,6 +340,14 @@ export const QueryTable = () => {
           </TableBody>
         </Table>
       </div>
+
+      {editingQuery && (
+        <EditQueryDialog
+          query={editingQuery}
+          open={!!editingQuery}
+          onOpenChange={(open) => !open && setEditingQuery(null)}
+        />
+      )}
     </div>
   );
 };
