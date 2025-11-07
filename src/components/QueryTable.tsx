@@ -112,7 +112,7 @@ export const QueryTable = () => {
       Type: q.query_types?.name || "",
       Status: q.status,
       Priority: q.priority,
-      Created: format(new Date(q.created_at), "yyyy-MM-dd"),
+      Created: (()=>{const d=new Date(q.created_at); return isNaN(d.getTime()) ? "" : format(d,"yyyy-MM-dd");})(),
     }));
 
     const headers = Object.keys(csvData[0] || {});
@@ -137,7 +137,7 @@ export const QueryTable = () => {
       Type: q.query_types?.name || "",
       Status: q.status,
       Priority: q.priority,
-      Created: format(new Date(q.created_at), "yyyy-MM-dd"),
+      Created: (()=>{const d=new Date(q.created_at); return isNaN(d.getTime()) ? "" : format(d,"yyyy-MM-dd");})(),
     }));
 
     const ws = XLSX.utils.json_to_sheet(excelData);
@@ -153,7 +153,7 @@ export const QueryTable = () => {
     const allTypes = new Set<string>();
 
     filteredQueries.forEach((q) => {
-      const date = format(new Date(q.created_at), "yyyy-MM-dd");
+      const d = new Date(q.created_at); if (isNaN(d.getTime())) return; const date = format(d, "yyyy-MM-dd");
       const type = q.query_types?.name || "Untyped";
       allTypes.add(type);
 
@@ -234,7 +234,7 @@ export const QueryTable = () => {
     const allTypes = new Set<string>();
 
     filteredQueries.forEach((q) => {
-      const date = format(new Date(q.created_at), "yyyy-MM-dd");
+      const d = new Date(q.created_at); if (isNaN(d.getTime())) return; const date = format(d, "yyyy-MM-dd");
       const type = q.query_types?.name || "Untyped";
       allTypes.add(type);
 
@@ -399,10 +399,10 @@ export const QueryTable = () => {
                     )}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
-                    {query.created_at ? format(new Date(query.created_at), "MMM d, yyyy") : "-"}
+                    {(() => { const d = new Date(query.created_at); return isNaN(d.getTime()) ? "-" : format(d, "MMM d, yyyy"); })()}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
-                    {query.updated_at ? format(new Date(query.updated_at), "MMM d, yyyy") : "-"}
+                    {(() => { const d = new Date(query.updated_at); return isNaN(d.getTime()) ? "-" : format(d, "MMM d, yyyy"); })()}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex gap-2 justify-end">
