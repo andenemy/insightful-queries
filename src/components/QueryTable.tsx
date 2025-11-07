@@ -399,10 +399,10 @@ export const QueryTable = () => {
                     )}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
-                    {format(new Date(query.created_at), "MMM d, yyyy")}
+                    {query.created_at ? format(new Date(query.created_at), "MMM d, yyyy") : "-"}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
-                    {format(new Date(query.updated_at), "MMM d, yyyy")}
+                    {query.updated_at ? format(new Date(query.updated_at), "MMM d, yyyy") : "-"}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex gap-2 justify-end">
