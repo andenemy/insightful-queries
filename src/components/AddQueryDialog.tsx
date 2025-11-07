@@ -25,10 +25,7 @@ import { toast } from "sonner";
 
 export const AddQueryDialog = () => {
   const [open, setOpen] = useState(false);
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
   const [queryTypeId, setQueryTypeId] = useState("");
-  const [priority, setPriority] = useState("medium");
   const queryClient = useQueryClient();
 
   const { data: queryTypes = [] } = useQuery({
@@ -50,10 +47,10 @@ export const AddQueryDialog = () => {
 
       const { error } = await supabase.from("queries").insert({
         user_id: user.id,
-        title,
-        description,
+        title: "Query",
+        description: "",
         query_type_id: queryTypeId || null,
-        priority,
+        priority: "medium",
         status: "pending",
       });
 
@@ -63,10 +60,7 @@ export const AddQueryDialog = () => {
       queryClient.invalidateQueries({ queryKey: ["queries"] });
       queryClient.invalidateQueries({ queryKey: ["stats"] });
       toast.success("Query added successfully");
-      setTitle("");
-      setDescription("");
       setQueryTypeId("");
-      setPriority("medium");
       setOpen(false);
     },
     onError: () => {
@@ -96,61 +90,25 @@ export const AddQueryDialog = () => {
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="title">Title *</Label>
-            <Input
-              id="title"
-              placeholder="Enter query title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              placeholder="Enter query description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={4}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="type">Query Type</Label>
-              <Select value={queryTypeId} onValueChange={setQueryTypeId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {queryTypes.map((type) => (
-                    <SelectItem key={type.id} value={type.id}>
-                      {type.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="priority">Priority</Label>
-              <Select value={priority} onValueChange={setPriority}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="urgent">Urgent</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            <Label htmlFor="type">Query Type *</Label>
+            <Select value={queryTypeId} onValueChange={setQueryTypeId} required>
+              <SelectTrigger>
+                <SelectValue placeholder="Select type" />
+              </SelectTrigger>
+              <SelectContent>
+                {queryTypes.map((type) => (
+                  <SelectItem key={type.id} value={type.id}>
+                    {type.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="flex justify-end gap-2 pt-4">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={addQueryMutation.isPending}>
+            <Button type="submit" disabled={addQueryMutation.isPending || !queryTypeId}>
               {addQueryMutation.isPending ? "Adding..." : "Add Query"}
             </Button>
           </div>

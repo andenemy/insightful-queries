@@ -19,7 +19,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Trash2, Download, Printer, Edit } from "lucide-react";
+import { Trash2, Download, Printer, Edit, Upload, FileDown } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import * as XLSX from "xlsx";
@@ -155,19 +161,29 @@ export const QueryTable = () => {
       summary[date][type] = (summary[date][type] || 0) + 1;
     });
 
-    // Create printable HTML
+    // Calculate totals
     const typeColumns = Array.from(allTypes).sort();
     const dates = Object.keys(summary).sort();
+    const typeTotals: { [type: string]: number } = {};
+    let grandTotal = 0;
 
+    typeColumns.forEach(type => {
+      typeTotals[type] = dates.reduce((sum, date) => sum + (summary[date][type] || 0), 0);
+      grandTotal += typeTotals[type];
+    });
+
+    // Create printable HTML
     let html = `
       <html>
         <head>
           <title>Query Summary Report</title>
           <style>
             body { font-family: Arial, sans-serif; padding: 20px; }
-            table { border-collapse: collapse; width: 100%; }
-            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-            th { background-color: #f2f2f2; }
+            table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+            th, td { border: 1px solid #ddd; padding: 12px; text-align: center; }
+            th { background-color: #f2f2f2; font-weight: bold; }
+            td:first-child, th:first-child { text-align: left; }
+            tr:last-child { font-weight: bold; background-color: #f9f9f9; }
             h1 { color: #333; }
           </style>
         </head>
@@ -193,6 +209,11 @@ export const QueryTable = () => {
                   </tr>
                 `;
               }).join("")}
+              <tr>
+                <td><strong>Total</strong></td>
+                ${typeColumns.map(type => `<td><strong>${typeTotals[type]}</strong></td>`).join("")}
+                <td><strong>${grandTotal}</strong></td>
+              </tr>
             </tbody>
           </table>
         </body>
@@ -205,6 +226,56 @@ export const QueryTable = () => {
       printWindow.document.close();
       printWindow.print();
     }
+  };
+
+  const exportSummary = () => {
+    // Group queries by date and type
+    const summary: { [date: string]: { [type: string]: number } } = {};
+    const allTypes = new Set<string>();
+
+    filteredQueries.forEach((q) => {
+      const date = format(new Date(q.created_at), "yyyy-MM-dd");
+      const type = q.query_types?.name || "Untyped";
+      allTypes.add(type);
+
+      if (!summary[date]) summary[date] = {};
+      summary[date][type] = (summary[date][type] || 0) + 1;
+    });
+
+    const typeColumns = Array.from(allTypes).sort();
+    const dates = Object.keys(summary).sort();
+
+    // Calculate totals
+    const typeTotals: { [type: string]: number } = {};
+    let grandTotal = 0;
+    typeColumns.forEach(type => {
+      typeTotals[type] = dates.reduce((sum, date) => sum + (summary[date][type] || 0), 0);
+      grandTotal += typeTotals[type];
+    });
+
+    // Create Excel data
+    const excelData = dates.map(date => {
+      const row: any = { Date: date };
+      typeColumns.forEach(type => {
+        row[type] = summary[date][type] || 0;
+      });
+      row.Total = Object.values(summary[date]).reduce((a, b) => a + b, 0);
+      return row;
+    });
+
+    // Add totals row
+    const totalsRow: any = { Date: "Total" };
+    typeColumns.forEach(type => {
+      totalsRow[type] = typeTotals[type];
+    });
+    totalsRow.Total = grandTotal;
+    excelData.push(totalsRow);
+
+    const ws = XLSX.utils.json_to_sheet(excelData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Summary");
+    XLSX.writeFile(wb, `query-summary-${format(new Date(), "yyyy-MM-dd")}.xlsx`);
+    toast.success("Summary exported to Excel");
   };
 
   const getStatusColor = (status: string) => {
@@ -253,19 +324,44 @@ export const QueryTable = () => {
           </SelectContent>
         </Select>
         <div className="flex gap-2 ml-auto">
-          <Button variant="outline" size="sm" onClick={printSummary}>
-            <Printer className="w-4 h-4 mr-2" />
-            Print Summary
-          </Button>
-          <ImportExcelDialog />
-          <Button variant="outline" size="sm" onClick={exportToCSV}>
-            <Download className="w-4 h-4 mr-2" />
-            CSV
-          </Button>
-          <Button variant="outline" size="sm" onClick={exportToExcel}>
-            <Download className="w-4 h-4 mr-2" />
-            Excel
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Upload className="w-4 h-4 mr-2" />
+                Import
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <ImportExcelDialog />
+            </DropdownMenuContent>
+          </DropdownMenu>
+          
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm">
+                <FileDown className="w-4 h-4 mr-2" />
+                Export
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={printSummary}>
+                <Printer className="w-4 h-4 mr-2" />
+                Print Summary
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={exportToCSV}>
+                <Download className="w-4 h-4 mr-2" />
+                CSV
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={exportToExcel}>
+                <Download className="w-4 h-4 mr-2" />
+                Excel
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={exportSummary}>
+                <Download className="w-4 h-4 mr-2" />
+                Export Summary
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
@@ -273,10 +369,7 @@ export const QueryTable = () => {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Title</TableHead>
               <TableHead>Type</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Priority</TableHead>
               <TableHead>Created</TableHead>
               <TableHead>Edited</TableHead>
               <TableHead className="text-right">Actions</TableHead>
@@ -285,14 +378,13 @@ export const QueryTable = () => {
           <TableBody>
             {filteredQueries.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
                   No queries found. Add your first query to get started!
                 </TableCell>
               </TableRow>
             ) : (
               filteredQueries.map((query) => (
                 <TableRow key={query.id}>
-                  <TableCell className="font-medium">{query.title}</TableCell>
                   <TableCell>
                     {query.query_types && (
                       <Badge
@@ -305,31 +397,6 @@ export const QueryTable = () => {
                         {query.query_types.name}
                       </Badge>
                     )}
-                  </TableCell>
-                  <TableCell>
-                    <Select
-                      value={query.status}
-                      onValueChange={(value) =>
-                        updateStatusMutation.mutate({ id: query.id, status: value })
-                      }
-                    >
-                      <SelectTrigger className="w-[130px]">
-                        <Badge className={getStatusColor(query.status)}>
-                          {query.status.replace("_", " ")}
-                        </Badge>
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="pending">Pending</SelectItem>
-                        <SelectItem value="in_progress">In Progress</SelectItem>
-                        <SelectItem value="resolved">Resolved</SelectItem>
-                        <SelectItem value="closed">Closed</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
-                  <TableCell>
-                    <Badge className={getPriorityColor(query.priority)}>
-                      {query.priority}
-                    </Badge>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {format(new Date(query.created_at), "MMM d, yyyy")}
