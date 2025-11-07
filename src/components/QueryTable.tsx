@@ -348,14 +348,6 @@ export const QueryTable = () => {
                 <Printer className="w-4 h-4 mr-2" />
                 Print Summary
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={exportToCSV}>
-                <Download className="w-4 h-4 mr-2" />
-                CSV
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={exportToExcel}>
-                <Download className="w-4 h-4 mr-2" />
-                Excel
-              </DropdownMenuItem>
               <DropdownMenuItem onClick={exportSummary}>
                 <Download className="w-4 h-4 mr-2" />
                 Export Summary
@@ -386,23 +378,18 @@ export const QueryTable = () => {
               filteredQueries.map((query) => (
                 <TableRow key={query.id}>
                   <TableCell>
-                    {query.query_types && (
-                      <Badge
-                        variant="outline"
-                        style={{
-                          borderColor: query.query_types.color,
-                          color: query.query_types.color,
-                        }}
-                      >
-                        {query.query_types.name}
-                      </Badge>
-                    )}
+                    <Badge
+                      variant="outline"
+                      style={query.query_types?.color ? { borderColor: query.query_types.color, color: query.query_types.color } : undefined}
+                    >
+                      {query.query_types?.name ?? "Untyped"}
+                    </Badge>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
-                    {(() => { const d = new Date(query.created_at); return isNaN(d.getTime()) ? "-" : format(d, "MMM d, yyyy"); })()}
+                    {(() => { const d = new Date(query.created_at); return isNaN(d.getTime()) ? "-" : format(d, "MMM d, yyyy h:mm a"); })()}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
-                    {(() => { const d = new Date(query.updated_at); return isNaN(d.getTime()) ? "-" : format(d, "MMM d, yyyy"); })()}
+                    {(() => { const d = new Date(query.updated_at); return isNaN(d.getTime()) ? "-" : format(d, "MMM d, yyyy h:mm a"); })()}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex gap-2 justify-end">
